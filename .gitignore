@@ -30,3 +30,27 @@
 *.exe
 *.out
 *.app
+# C++ specific
+*.o
+*.obj
+*.so
+*.exe
+*.dll
+*.lib
+*.a
+*.lo
+*.la
+*.ii
+*.ii.gch
+
+# Vulkan specific
+.vscode/
+*.spv
+
+# Cross-platform
+.DS_Store
+Thumbs.db
+*.log
+*.tmp
+*.bak
+build/
