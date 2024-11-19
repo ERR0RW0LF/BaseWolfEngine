@@ -1,39 +1,67 @@
-extern crate vulkano;
-extern crate vulkano_shaders;
+extern crate ash;
 extern crate winit;
+extern crate env_logger;
+extern crate log;
 
-use vulkano::instance::{Instance, InstanceExtensions};
-use vulkano::device::{Device, DeviceExtensions};
-use vulkano::swapchain::{Surface, Swapchain};
-use vulkano::buffer::{CpuAccessibleBuffer, BufferUsage};
-use vulkano::pipeline::GraphicsPipeline;
-use vulkano::framebuffer::{Framebuffer, Subpass};
-use vulkano::command_buffer::{AutoCommandBufferBuilder, CommandBuffer};
-use vulkano::sync::{GpuFuture, now};
-use winit::{EventsLoop, WindowBuilder};
+
+use ash::vk;
+use winit::event_loop::EventLoop;
+use winit::window::WindowBuilder;
 
 fn main() {
-    let instance = Instance::new(None, &InstanceExtensions::none(), &[], None).unwrap();
-    let events_loop = EventsLoop::new();
-    let surface = WindowBuilder::new().build_vk_surface(&events_loop, instance.clone()).unwrap();
+    env_logger::init();
+    let entry = unsafe {
+        ash::Entry::new().unwrap()
+    };
+    let app_name = std::ffi::CString::new("BaseWolfEngine").unwrap();
 
-    let physical = vulkano::instance::PhysicalDevice::enumerate(&instance).next().unwrap();
-    let queue_family = physical.queue_families().find(|&q| q.supports_graphics() && surface.is_supported(q).unwrap_or(false)).unwrap();
+    let event_loop = EventLoop::new();
+    let window = WindowBuilder::new()
+        .with_title("BaseWolfEngine")
+        .build(&event_loop)
+        .unwrap();
 
-    let (device, mut queues) = Device::new(physical, &physical.supported_features(), &DeviceExtensions::none(), [(queue_family, 0.5)].iter().cloned()).unwrap();
-    let queue = queues.next().unwrap();
+    let app_info = vk::ApplicationInfo {
+        p_application_name: app_name.as_ptr(),
+        s_type: vk::StructureType::APPLICATION_INFO,
+        p_next: std::ptr::null(),
+        application_version: 0,
+        p_engine_name: app_name.as_ptr(),
+        engine_version: 0,
+        api_version: vk::make_version(1, 0, 0),
+    };
 
-    let (swapchain, images) = {
-        let caps = surface.capabilities(physical).unwrap();
-        let dimensions = caps.current_extent.unwrap_or([1024, 768]);
-        let alpha = caps.supported_composite_alpha.iter().next().unwrap();
-        let format = caps.supported_formats[0].0;
+    let create_info = vk::InstanceCreateInfo {
+        s_type: vk::StructureType::INSTANCE_CREATE_INFO,
+        p_next: std::ptr::null(),
+        flags: vk::InstanceCreateFlags::empty(),
+        p_application_info: &app_info,
+        pp_enabled_layer_names: std::ptr::null(),
+        enabled_layer_count: 0,
+        pp_enabled_extension_names: std::ptr::null(),
+        enabled_extension_count: 0,
+    };
 
-        Swapchain::new(device.clone(), surface.clone(), caps.min_image_count, format, dimensions, 1, caps.supported_usage_flags, &queue, vulkano::swapchain::SurfaceTransform::Identity, alpha, vulkano::swapchain::PresentMode::Fifo, true, None).unwrap()
+    let instance: ash::Instance = unsafe {
+        entry.create_instance(&create_info, None)
+            .expect("Instance creation error")
     };
 
     // Main loop
-    loop {
-        events_loop.poll_events(|_| {});
+    event_loop.run(move |event, _, control_flow| {
+        *control_flow = winit::event_loop::ControlFlow::Wait;
+        match event {
+            winit::event::Event::WindowEvent { event, .. } => match event {
+                winit::event::WindowEvent::CloseRequested => {
+                    *control_flow = winit::event_loop::ControlFlow::Exit;
+                }
+                _ => (),
+            },
+            _ => (),
+        }
+    });
+
+    unsafe {
+        instance.destroy_instance(None);
     }
 }
